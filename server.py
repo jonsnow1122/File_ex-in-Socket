@@ -5,7 +5,7 @@ import time
 
 # 创建一个socket对象
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+BUFFER_SIZE = 1024  # 缓冲区大小
 # 绑定IP地址和端口号
 server.bind(("127.0.0.1", 8888))
 
@@ -23,6 +23,33 @@ cliname = {}
 
 # 定义一个字典，存储已发送的文件对象
 files = {}
+
+
+def receive_file(client):
+    # 接收文件大小字符串，并转换成整数
+    filesize_str = client.recv(10).decode()
+    filesize = int(filesize_str)
+
+    # 用一个变量记录已接收的字节数
+    received = 0
+
+    # 创建一个空的字节对象，用于存储文件内容
+    filecontent = b""
+
+    # 在一个循环中不断地接收文件内容，直到接收完毕
+    while received < filesize:
+        # 每次接收4096个字节
+        chunk = client.recv(4096)
+
+        # 将数据块追加到文件内容中
+        filecontent += chunk
+
+        # 更新已接收的字节数
+        received += len(chunk)
+
+    # 返回文件内容
+    return filecontent
+
 
 # 定义一个函数，处理每个客户端的消息
 def handle_client(client):
@@ -61,52 +88,57 @@ def handle_client(client):
 
             # 循环接收客户端的消息
             while True:
-                try:
-                    # 接收客户端的消息，使用pickle模块反序列化
+            #try:
+                # 接收客户端的消息，使用pickle模块反序列化
+                while True:
                     message = pickle.loads(client.recv(1024))
 
-                    # 判断消息的类型
-                    if isinstance(message, str):
-                        if message.startswith("@"):
-                            ater = message.split()[0][1:]
-                            if ater in cliname.keys():
-                                send_message(f"{username}: {message}", cliname[ater])
-                            else:
-                                client.send(pickle.dumps(f"user {ater} not found!"))
+                # 判断消息的类型
+                if isinstance(message, str):
+                    if message.startswith("@"):
+                        ater = message.split()[0][1:]
+                        if ater in cliname.keys():
+                            send_message(f"{username}: {message}", cliname[ater])
                         else:
-                            # 如果是一般字符串，就是普通的聊天消息，直接广播给其他客户端
-                            broadcast(f"{username}: {message}", client)
-                    elif isinstance(message, tuple):
-                        # 如果是元组，就是文件对象，包含文件名和文件内容
-                        filename, filecontent = message
+                            client.send(pickle.dumps(f"user {ater} not found!"))
+                    else:
+                        # 如果是一般字符串，就是普通的聊天消息，直接广播给其他客户端
+                        broadcast(f"{username}: {message}", client)
+                elif isinstance(message, tuple):
+                    # 如果是元组，就是文件对象，包含文件名和文件内容
+                    print("123")
+                    #message = client.recv(BUFFER_SIZE)
+                    filename, filesize = message
 
-                        # 将文件对象保存在字典中，以文件名为键，文件内容为值
-                        files[filename] = filecontent
+                    with open(filename, 'wb') as f:
+                        received_size = 0
+                        filesize = int(filesize)
+                        while received_size < filesize:
+                            data = client.recv(BUFFER_SIZE)
+                            received_size += len(data)
+                            f.write(data)
 
-                        # 将文件对象保存在本地，以备下载
-                        with open(filename, "wb") as f:
-                            f.write(filecontent)
+                    # 广播给其他客户端有新文件可下载
+                    broadcast(f"{username} has sent a file: {filename}. You can download it by typing /download {filename}", client)
+                elif isinstance(message, list):
+                    # 如果是列表，就是下载请求，包含请求者的用户名和要下载的文件名
+                    requester, filename = message
 
-                        # 广播给其他客户端有新文件可下载
-                        broadcast(f"{username} has sent a file: {filename}. You can download it by typing /download {filename}", client)
-                    elif isinstance(message, list):
-                        # 如果是列表，就是下载请求，包含请求者的用户名和要下载的文件名
-                        requester, filename = message
-
-                        # 判断文件名是否在字典中
-                        if filename in files:
-                            # 如果在，就将对应的文件对象发送给请求者
-                            send_file(files[filename], requester)
-                        else:
-                            # 如果不在，就向请求者发送文件不存在的消息
-                            send_message(f"File {filename} does not exist.", requester)
-
+                    # 判断文件名是否在字典中
+                    if filename in files:
+                        # 如果在，就将对应的文件对象发送给请求者
+                        send_file(files[filename], requester)
+                    else:
+                        # 如果不在，就向请求者发送文件不存在的消息
+                        send_message(f"File {filename} does not exist.", requester)
+                '''
                 except:
                     # 如果发生异常，就表示客户端断开连接，从列表中移除，并广播
                     clients.remove(client)
                     broadcast(f"{username} has left the chat room.", client)
                     print(f"{address} has disconnected")
                     break
+                '''
     else:
         # 如果不正确，向客户端发送登录失败消息，并断开连接
         client.send(pickle.dumps("Login failed. Wrong username or password."))

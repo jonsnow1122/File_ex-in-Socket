@@ -1,3 +1,4 @@
+import os
 import socket
 import threading
 import pickle
@@ -5,10 +6,11 @@ import tkinter as tk
 import time
 from tkinter import filedialog
 
+
 # 创建一个socket对象
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 flag = True
-
+BUFFER_SIZE = 1024  # 缓冲区大小
 # 连接到服务器的IP地址和端口号
 client.connect(("127.0.0.1", 8888))
 
@@ -62,11 +64,19 @@ def choose_file():
         if filepath:
             # 获取文件名和文件内容
             filename = filepath.split("/")[-1]
-            with open(filepath, "rb") as f:
-                filecontent = f.read()
+            filesize = os.path.getsize(filepath)
+            message = (filename, filesize)
+            client.send(pickle.dumps(message))
+            print(123)
+
+            with open(filepath, 'rb') as f:
+                while True:
+                    data = f.read(BUFFER_SIZE)
+                    if not data:
+                        break
+                    client.send(data)
+
             listbox.insert(tk.END, filename)
-            # 向服务器发送文件对象，包含文件名和文件内容，使用pickle模块序列化
-            client.send(pickle.dumps((filename, filecontent)))
 
 # 创建一个列表框，显示已发送的文件列表
 listbox = tk.Listbox(window)
