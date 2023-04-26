@@ -1,3 +1,4 @@
+import os
 import socket
 import threading
 import pickle
@@ -90,8 +91,7 @@ def handle_client(client):
             while True:
             #try:
                 # 接收客户端的消息，使用pickle模块反序列化
-                while True:
-                    message = pickle.loads(client.recv(1024))
+                message = pickle.loads(client.recv(1024))
 
                 # 判断消息的类型
                 if isinstance(message, str):
@@ -106,10 +106,9 @@ def handle_client(client):
                         broadcast(f"{username}: {message}", client)
                 elif isinstance(message, tuple):
                     # 如果是元组，就是文件对象，包含文件名和文件内容
-                    print("123")
                     #message = client.recv(BUFFER_SIZE)
                     filename, filesize = message
-
+                    files[filename] = "1"
                     with open(filename, 'wb') as f:
                         received_size = 0
                         filesize = int(filesize)
@@ -125,9 +124,9 @@ def handle_client(client):
                     requester, filename = message
 
                     # 判断文件名是否在字典中
-                    if filename in files:
+                    if filename in files.keys():
                         # 如果在，就将对应的文件对象发送给请求者
-                        send_file(files[filename], requester)
+                        send_file(filename, requester)
                     else:
                         # 如果不在，就向请求者发送文件不存在的消息
                         send_message(f"File {filename} does not exist.", requester)
@@ -163,14 +162,23 @@ def send_message(message, receiver):
             break
 
 # 定义一个函数，向指定的客户端发送文件对象，使用pickle模块序列化
-def send_file(filecontent, receiver):
+def send_file(filename, receiver):
     # 循环遍历客户端列表
     for client in clients:
         # 获取客户端的地址
         address = client.getpeername()
         # 如果地址的第一个元素（IP地址）等于接收者的用户名，就向其发送文件对象
         if address == receiver:
-            client.send(pickle.dumps(filecontent))
+            #client.send(pickle.dumps(filecontent))
+            filesize = os.path.getsize(filename)
+            message = [filename, filesize]
+            client.send(pickle.dumps(message))
+            with open(filename, 'rb') as f:
+                while True:
+                    data = f.read(BUFFER_SIZE)
+                    if not data:
+                        break
+                    client.send(data)
             break
 
 # 打印服务器启动的消息

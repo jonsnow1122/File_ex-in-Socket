@@ -67,7 +67,6 @@ def choose_file():
             filesize = os.path.getsize(filepath)
             message = (filename, filesize)
             client.send(pickle.dumps(message))
-            print(123)
 
             with open(filepath, 'rb') as f:
                 while True:
@@ -96,6 +95,7 @@ def download_file():
 
         # 向服务器发送下载请求，包含自己的IP地址和文件名，使用pickle模块序列化
         client.send(pickle.dumps([client.getsockname(), filename]))
+        
 
 # 创建一个按钮，点击时调用download_file函数
 button = tk.Button(window, text="Download File", command=download_file)
@@ -120,6 +120,16 @@ def receive_message():
             # 如果是字典，就是已发送的文件列表，循环遍历并添加到列表框中
             for filename in message:
                 listbox.insert(tk.END, filename)
+        elif isinstance(message, list):
+            #message = pickle.loads(client.recv(1024))
+            filename, filesize = message
+            with open(f'E:/聊天/s/{filename}', 'wb') as f:
+                received_size = 0
+                filesize = int(filesize)
+                while received_size < filesize:
+                    data = client.recv(BUFFER_SIZE)
+                    received_size += len(data)
+                    f.write(data)
         elif isinstance(message, bytes):
             # 如果是字节串，就是文件对象，包含文件内容
             filecontent = message
