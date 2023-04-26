@@ -38,13 +38,14 @@ def send_message():
                 filename = message.split()[1]
 
                 # 向服务器发送下载请求，包含自己的IP地址和文件名，使用pickle模块序列化
-                client.send(pickle.dumps([client.getsockname()[0], filename]))
+                client.send(pickle.dumps([client.getsockname(), filename]))
             else:
                 # 如果是其他指令，就在文本框中显示无效指令的消息
                 text.insert(tk.END, "Invalid command.\n")
         else:
             # 如果是普通的聊天消息，就直接发送给服务器，使用pickle模块序列化
             client.send(pickle.dumps(message))
+            text.insert(tk.END, ":" + message + "\n")
     entry.delete(0, tk.END)
 
 # 创建一个按钮，点击时调用send_message函数
@@ -67,6 +68,7 @@ def choose_file():
             # 向服务器发送文件对象，包含文件名和文件内容，使用pickle模块序列化
             client.send(pickle.dumps((filename, filecontent)))
 
+# 创建一个列表框，显示已发送的文件列表
 listbox = tk.Listbox(window)
 listbox.pack()
 
@@ -74,10 +76,7 @@ listbox.pack()
 button = tk.Button(window, text="Choose File", command=choose_file)
 button.pack()
 
-# 创建一个列表框，显示已发送的文件列表
-#listbox = tk.Listbox(window)
-#listbox.insert(tk.END,filename[1])
-#listbox.pack()
+
 
 # 创建一个函数，下载选中的文件
 def download_file():
@@ -86,7 +85,7 @@ def download_file():
         filename = listbox.get(tk.ACTIVE)
 
         # 向服务器发送下载请求，包含自己的IP地址和文件名，使用pickle模块序列化
-        client.send(pickle.dumps([client.getsockname()[0], filename]))
+        client.send(pickle.dumps([client.getsockname(), filename]))
 
 # 创建一个按钮，点击时调用download_file函数
 button = tk.Button(window, text="Download File", command=download_file)
@@ -104,6 +103,9 @@ def receive_message():
         if isinstance(message, str):
             # 如果是字符串，就是普通的聊天消息，直接在文本框中显示
             text.insert(tk.END, message + "\n")
+            if message.split()[0] == "Login" and message.split()[1] == "failed.":
+                flag = False
+                break
         elif isinstance(message, dict):
             # 如果是字典，就是已发送的文件列表，循环遍历并添加到列表框中
             for filename in message:
@@ -121,9 +123,7 @@ def receive_message():
                 with open(filepath, "wb") as f:
                     f.write(filecontent)
                 text.insert(tk.END, f"File {filepath.split('/')[-1]} saved.\n")
-        if message == "Login failed. Wrong username or password.":
-            flag = False
-            break
+        
 
 # 创建一个线程，执行receive_message函数
 thread = threading.Thread(target=receive_message)
