@@ -10,10 +10,11 @@ from tkinter import filedialog
 # 创建一个socket对象
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 flag = True
+username = 1
 BUFFER_SIZE = 1024  # 缓冲区大小
 # 连接到服务器的IP地址和端口号
-client.connect(("127.0.0.1", 8888))
-
+client.connect(("112.126.75.159", 2000))
+#client.connect(("127.0.0.1", 8888))
 # 创建一个图形用户界面
 window = tk.Tk()
 window.title("Chat Room")
@@ -28,6 +29,7 @@ entry.pack()
 
 # 创建一个函数，发送聊天消息
 def send_message():
+    global flag, username
     if flag:
         # 获取输入框的内容，并清空输入框
         message = entry.get()
@@ -46,6 +48,8 @@ def send_message():
                 text.insert(tk.END, "Invalid command.\n")
         else:
             # 如果是普通的聊天消息，就直接发送给服务器，使用pickle模块序列化
+            if isinstance(username, int):
+                username = message
             client.send(pickle.dumps(message))
             text.insert(tk.END, ":" + message + "\n")
     entry.delete(0, tk.END)
@@ -56,6 +60,7 @@ button.pack()
 
 # 创建一个函数，选择要发送的文件
 def choose_file():
+    global flag
     if flag:
         # 弹出一个文件选择器，获取选择的文件路径
         filepath = filedialog.askopenfilename()
@@ -89,13 +94,14 @@ button.pack()
 
 # 创建一个函数，下载选中的文件
 def download_file():
+    global flag
     if flag:
         # 获取列表框中选中的文件名
         filename = listbox.get(tk.ACTIVE)
-
+        print('df')
         # 向服务器发送下载请求，包含自己的IP地址和文件名，使用pickle模块序列化
-        client.send(pickle.dumps([client.getsockname(), filename]))
-        
+        client.send(pickle.dumps([username, filename]))
+        #client.getsockname()
 
 # 创建一个按钮，点击时调用download_file函数
 button = tk.Button(window, text="Download File", command=download_file)
@@ -106,7 +112,7 @@ def receive_message():
     # 循环接收服务器的消息，使用pickle模块反序列化
     while True:
         message = pickle.loads(client.recv(1024))
-
+        print(type(message))
         # 判断消息的类型
         #if not message:
         #    continue
@@ -123,13 +129,17 @@ def receive_message():
         elif isinstance(message, list):
             #message = pickle.loads(client.recv(1024))
             filename, filesize = message
-            with open(f'E:/聊天/s/{filename}', 'wb') as f:
+            print('ls')
+            with open(f'D:/123/{filename}', 'wb') as f:
                 received_size = 0
                 filesize = int(filesize)
+                print(1)
                 while received_size < filesize:
+                    print('#')
                     data = client.recv(BUFFER_SIZE)
                     received_size += len(data)
                     f.write(data)
+        '''
         elif isinstance(message, bytes):
             # 如果是字节串，就是文件对象，包含文件内容
             filecontent = message
@@ -142,7 +152,7 @@ def receive_message():
                 # 将文件内容保存到本地，并在文本框中显示文件名
                 with open(filepath, "wb") as f:
                     f.write(filecontent)
-                text.insert(tk.END, f"File {filepath.split('/')[-1]} saved.\n")
+                text.insert(tk.END, f"File {filepath.split('/')[-1]} saved.\n")'''
         
 
 # 创建一个线程，执行receive_message函数

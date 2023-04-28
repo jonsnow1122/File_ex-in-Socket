@@ -1,2 +1,0 @@
-source activate tensorflow
-CUDA_VISIBLE_DEVICES=5 python federatedrecommend.py --model=mf
